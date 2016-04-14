@@ -1,6 +1,6 @@
 # DNS-over-HTTPS proxy
 
-[![Build Status](https://api.travis-ci.org/wrouesnel/dns-over-https-proxy.png?branch=master)](https://travis-ci.org/StalkR/dns-reverse-proxy) [![Godoc](https://godoc.org/github.com/wrouesnel/dns-over-https-proxy?status.png)](https://godoc.org/github.com/wrouesnel/dns-over-https-proxy)
+[![Build Status](https://api.travis-ci.org/wrouesnel/dns-over-https-proxy.png?branch=master)](https://api.travis-ci.org/wrouesnel/dns-over-https-proxy) [![Godoc](https://godoc.org/github.com/wrouesnel/dns-over-https-proxy?status.png)](https://godoc.org/github.com/wrouesnel/dns-over-https-proxy)
 
 An implementation of a forwarding DNS proxy for using Google's DNS-over-HTTPS
 service with conventional applications.

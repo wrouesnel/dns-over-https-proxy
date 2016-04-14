@@ -22,3 +22,9 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+# IDEs
+.idea
+
+# Executables
+dns-over-https-proxy
