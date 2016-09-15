@@ -1,6 +1,9 @@
 language: go
 go:
 - 1.6
+script:
+- go test -v ./...
+- go build -o dns-over-https-proxy .
 deploy:
   skip_cleanup: true
   provider: releases
