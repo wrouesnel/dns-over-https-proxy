@@ -1,19 +1,9 @@
 /*
-Binary dns_reverse_proxy is a DNS reverse proxy to route queries to DNS servers.
+dns-over-https-proxy is a DNS proxy server to serve DNS via the Google
+HTTPS DNS endpoint.
 
-To illustrate, imagine an HTTP reverse proxy but for DNS.
-It listens on both TCP/UDP IPv4/IPv6 on specified port.
-Since the upstream servers will not see the real client IPs but the proxy,
-you can specify a list of IPs allowed to transfer (AXFR/IXFR).
-
-Example usage:
-        $ go run dns_reverse_proxy.go -address :53 \
-                -default 8.8.8.8:53 \
-                -route .example.com.=8.8.4.4:53 \
-                -allow-transfer 1.2.3.4,::1
-
-A query for example.net or example.com will go to 8.8.8.8:53, the default.
-However, a query for subdomain.example.com will go to 8.8.4.4:53.
+Usage:
+go run dns_reverse_proxy.go -debug=true -address=127.0.0.1:8500 -log.level=debug
 */
 package main
 
