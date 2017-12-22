@@ -1,15 +1,9 @@
 language: go
 go:
-- 1.6
+- '1.9'
+cache:
+  directories:
+  - tools/bin
 script:
-- go test -v ./...
-- go build -o dns-over-https-proxy .
-deploy:
-  skip_cleanup: true
-  provider: releases
-  api_key:
-    secure: OGZigikTdBnXqHpTJNk/z7yPA8umuasRZ8kyHY+Fp5QArgcauS/9larHxpJ0Q1j7KSpVHbeMOsbLUod1ahIZMCmDQuVoiC89ECs+K+0+ELOKMRHgmHloEhUOH30Hr9hkgQpj/L0W/ImzyYGYAkaLzbotCJ7mTmWgigEgrkooaKLGjk9o5FV4yRvdqMPyeMQsK2KWEZ+iu1ncwbp6d6YbbUnAt+E0zWzgoPwNk6D5bMDfr5aq4Vz0PDmqrSeHjs/kSk9QjKPcnciuixJETIbD/8W6L3U5zMp9fd6qQqXCjymGe00PAfu8RDF04s42dNST/fMD1eMjHvtWkvfwPVaEgsKaBxazpflGTUOJ8rj2j3dCbKXwbhJVol3Ag7+IhAud924Nwtn7tm/Na7lN3/wfXf1kPeXos3dWr29O3vr0k5Ajm1cNK6iXUeTxq/Ikqo3do9knunSg+l7WpxNlhGR2XWGovZ6TEsW+iwJeF67+VCgR7oco505C24mCchVVDZ+/xLY7Zrm6sqkfSmduUDKGeG1EKpFjsmyLL4zpOqEzOdBfInf0VEbWeZwOZiXDnWxMAup78n82+VmaxCQVr/r33rKslrNoXI+5LEH6+2WJJ+o9mMr46Vy8VJ2GHsOneOfU51HeP4/8J7n+QLlac+z6gSpyPEkbMWgTHOswXMzn+As=
-  file: $GOPATH/src/github.com/wrouesnel/dns-over-https-proxy/dns-over-https-proxy
-  on:
-    tags: true
-    repo: wrouesnel/dns-over-https-proxy
+- CONCURRENT_LINTERS=1 LINTER_DEADLINE=180s make all
+- tools/bin/goveralls -coverprofile=cover.out -service=travis-ci"

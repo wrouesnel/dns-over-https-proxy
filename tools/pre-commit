@@ -1,0 +1,6 @@
+#!/bin/bash
+# Standard pre-commit hook for my Golang projects.
+
+# Execute style check from the make file.
+make fmt
+exit $?
