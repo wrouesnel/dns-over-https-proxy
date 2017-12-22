@@ -13,12 +13,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/wrouesnel/go.log"
-	"github.com/miekg/dns"
-	"net/http"
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
+
+	"github.com/miekg/dns"
+	"github.com/wrouesnel/go.log"
 )
 
 var (
@@ -39,44 +40,46 @@ var (
 	//transferIPs []string
 )
 
-// Rough translation of the Google DNS over HTTP API
-type DNSResponseJson struct {
-	Status int32				`json:"Status,omitempty"`
-	TC bool						`json:"TC,omitempty"`
-	RD bool						`json:"RD,omitempty"`
-	RA bool						`json:"RA,omitempty"`
-	AD bool						`json:"AD,omitempty"`
-	CD bool						`json:"CD,omitempty"`
-	Question []DNSQuestion		`json:"Question,omitempty"`
-	Answer []DNSRR				`json:"Answer,omitempty"`
-	Authority []DNSRR			`json:"Authority,omitempty"`
-	Additional []DNSRR			`json:"Additional,omitempty"`
-	Edns_client_subnet string	`json:"edns_client_subnet,omitempty"`
-	Comment string				`json:"Comment,omitempty"`
+// DNSResponseJSON is a rough translation of the Google DNS over HTTP API as it currently exists.
+type DNSResponseJSON struct {
+	Status           int32         `json:"Status,omitempty"`
+	TC               bool          `json:"TC,omitempty"`
+	RD               bool          `json:"RD,omitempty"`
+	RA               bool          `json:"RA,omitempty"`
+	AD               bool          `json:"AD,omitempty"`
+	CD               bool          `json:"CD,omitempty"`
+	Question         []DNSQuestion `json:"Question,omitempty"`
+	Answer           []DNSRR       `json:"Answer,omitempty"`
+	Authority        []DNSRR       `json:"Authority,omitempty"`
+	Additional       []DNSRR       `json:"Additional,omitempty"`
+	EdnsClientSubnet string        `json:"edns_client_subnet,omitempty"`
+	Comment          string        `json:"Comment,omitempty"`
 }
 
+// DNSQuestion is the JSON encoding of a DNS request
 type DNSQuestion struct {
-	Name string	`json:"name,omitempty"`
-	Type int32	`json:"type,omitempty"`
+	Name string `json:"name,omitempty"`
+	Type int32  `json:"type,omitempty"`
 }
 
+// DNSRR is the JSON encoding of an RRset as returned by Google.
 type DNSRR struct {
-	Name string	`json:"name,omitempty"`
-	Type int32	`json:"type,omitempty"`
-	TTL int32	`json:"TTL,omitempty"`
-	Data string	`json:"data,omitempty"`
+	Name string `json:"name,omitempty"`
+	Type int32  `json:"type,omitempty"`
+	TTL  int32  `json:"TTL,omitempty"`
+	Data string `json:"data,omitempty"`
 }
 
-// Initialize a new RRGeneric from a DNSRR
+// NewRR initializes a new RRGeneric from a DNSRR
 func NewRR(a DNSRR) dns.RR {
 	var rr dns.RR
 
 	// Build an RR header
 	rrhdr := dns.RR_Header{
-		Name: a.Name,
-		Rrtype: uint16(a.Type),
-		Class: dns.ClassINET,
-		Ttl: uint32(a.TTL),
+		Name:     a.Name,
+		Rrtype:   uint16(a.Type),
+		Class:    dns.ClassINET,
+		Ttl:      uint32(a.TTL),
 		Rdlength: uint16(len(a.Data)),
 	}
 
@@ -93,7 +96,7 @@ func NewRR(a DNSRR) dns.RR {
 		}
 	} else {
 		rr = dns.RR(&dns.RFC3597{
-			Hdr: rrhdr,
+			Hdr:   rrhdr,
 			Rdata: a.Data,
 		})
 	}
@@ -139,8 +142,8 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
 
-	udpServer.Shutdown()
-	tcpServer.Shutdown()
+	udpServer.Shutdown() // nolint: errcheck
+	tcpServer.Shutdown() // nolint: errcheck
 }
 
 func route(w dns.ResponseWriter, req *dns.Msg) {
@@ -210,7 +213,7 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 	//	return
 	//}
 
-	httpreq, err := http.NewRequest(http.MethodGet, *defaultServer, nil)
+	httpreq, err := http.NewRequest(http.MethodGet, addr, nil)
 	if err != nil {
 		log.Errorln("Error setting up request:", err)
 		dns.HandleFailed(w, req)
@@ -234,10 +237,10 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 		dns.HandleFailed(w, req)
 		return
 	}
-	defer httpresp.Body.Close()
+	defer httpresp.Body.Close() // nolint: errcheck
 
 	// Parse the JSON response
-	dnsResp := new(DNSResponseJson)
+	dnsResp := new(DNSResponseJSON)
 	decoder := json.NewDecoder(httpresp.Body)
 	err = decoder.Decode(&dnsResp)
 	if err != nil {
@@ -250,8 +253,8 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 	questions := []dns.Question{}
 	for idx, c := range dnsResp.Question {
 		questions = append(questions, dns.Question{
-			Name: c.Name,
-			Qtype: uint16(c.Type),
+			Name:   c.Name,
+			Qtype:  uint16(c.Type),
 			Qclass: req.Question[idx].Qclass,
 		})
 	}
@@ -276,23 +279,23 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 
 	resp := dns.Msg{
 		MsgHdr: dns.MsgHdr{
-			Id: req.Id,
-			Response: (dnsResp.Status == 0),
-			Opcode:  dns.OpcodeQuery,
-			Authoritative: false,
-			Truncated: dnsResp.TC,
-			RecursionDesired: dnsResp.RD,
+			Id:                 req.Id,
+			Response:           (dnsResp.Status == 0),
+			Opcode:             dns.OpcodeQuery,
+			Authoritative:      false,
+			Truncated:          dnsResp.TC,
+			RecursionDesired:   dnsResp.RD,
 			RecursionAvailable: dnsResp.RA,
 			//Zero: false,
 			AuthenticatedData: dnsResp.AD,
-			CheckingDisabled: dnsResp.CD,
-			Rcode: int(dnsResp.Status),
+			CheckingDisabled:  dnsResp.CD,
+			Rcode:             int(dnsResp.Status),
 		},
 		Compress: req.Compress,
 		Question: questions,
-		Answer: answers,
-		Ns: authorities,
-		Extra: extras,
+		Answer:   answers,
+		Ns:       authorities,
+		Extra:    extras,
 	}
 
 	// Write the response
