@@ -10,7 +10,10 @@ A and AAAA records (as no API to convert them to Go-DNS format is yet written,
 and the Google API is still in flux).
 
 ## Usage
-Just run it!
+Just run it! Remember if you're behind a corporate proxy you will need to set your
+`http_proxy` and `https_proxy` environment variables to contact the Google DNS servers
+through them. It might also be advisable use a local caching proxy in front of this
+if it's going to be a daily driver.
 
 By default it binds to port 53, so if you have a local resolver it will fail to
 start. You can test it by binding to a high port and using dig like so:

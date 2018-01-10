@@ -6,15 +6,16 @@ cache:
   - tools/bin
 script:
 - CONCURRENT_LINTERS=1 LINTER_DEADLINE=180s make all
-- tools/bin/goveralls -coverprofile=cover.out -service=travis-ci"
+- tools/bin/goveralls -coverprofile=cover.out -service=travis-ci
 - make release
 deploy:
-  skip_cleanup: true
   provider: releases
   api_key:
-    secure: OGZigikTdBnXqHpTJNk/z7yPA8umuasRZ8kyHY+Fp5QArgcauS/9larHxpJ0Q1j7KSpVHbeMOsbLUod1ahIZMCmDQuVoiC89ECs+K+0+ELOKMRHgmHloEhUOH30Hr9hkgQpj/L0W/ImzyYGYAkaLzbotCJ7mTmWgigEgrkooaKLGjk9o5FV4yRvdqMPyeMQsK2KWEZ+iu1ncwbp6d6YbbUnAt+E0zWzgoPwNk6D5bMDfr5aq4Vz0PDmqrSeHjs/kSk9QjKPcnciuixJETIbD/8W6L3U5zMp9fd6qQqXCjymGe00PAfu8RDF04s42dNST/fMD1eMjHvtWkvfwPVaEgsKaBxazpflGTUOJ8rj2j3dCbKXwbhJVol3Ag7+IhAud924Nwtn7tm/Na7lN3/wfXf1kPeXos3dWr29O3vr0k5Ajm1cNK6iXUeTxq/Ikqo3do9knunSg+l7WpxNlhGR2XWGovZ6TEsW+iwJeF67+VCgR7oco505C24mCchVVDZ+/xLY7Zrm6sqkfSmduUDKGeG1EKpFjsmyLL4zpOqEzOdBfInf0VEbWeZwOZiXDnWxMAup78n82+VmaxCQVr/r33rKslrNoXI+5LEH6+2WJJ+o9mMr46Vy8VJ2GHsOneOfU51HeP4/8J7n+QLlac+z6gSpyPEkbMWgTHOswXMzn+As=
+    secure: SDfSox6BnnoZELv1eQxz07K32r3BevyHEQOPkmsYbANRpZvtv0nfN7Y/fADvfvvY4dRqoKJfS4oY518jbhz5zH+h+1INFAhVNMwh6TRsY2aQKkhWGZPRhqFeL6/pLIkyKFoQU/Jcfv5N1DFaXidaearudFN+VoYD/knAXPaATLmhdfUewi1gg1lNGyKtJlc1zN7ffo/o+u2NGnwo7+/+lvss0pC/KdQUI4YmrLoyDgZR5ADpZ8Kkuc5EGZOfubKl5eOxX408AfaVar4WIei61ZqkgkxOYeza1Ps0y1brBHR5DsHwWvefA76TtNzoQz4bsVPdMwV23SqPgCllH7cFlflGgle33Db6DWx+wJ274V6tcyqa1HpKwILzqsPuOD77LNQ+6eiqxUOMF2AYw8rFal/5UqeV82gMBhJAhyL8aWL5AFldJtqeZIFetxwC/eecoseaqpyrvgNPppIYQlNELKA26zKy4tDa/Pdu2GBBKDGIl3zbeijK3FH2hVLZZzFY/815QmvvsjZXcR7CIIcHxYf7nHPPWx6O+DPnPgVwGVMi03m4AXgJYIF/fOrScgmd8paFX8feMswNZRqppDzuzgKUPLT4O9TsFeAFgwrSYkUEyrcu2PkcnV0/uz1SRSwF3jKg0nNhHojXylULwwR7o/9wwZNFaOHRWHKVLtyCEE0=
+  skip_cleanup: true
   file_glob: true
-  file: release/*.tar.gz
+  file: release/*
   on:
     tags: true
+    branch: master
     repo: wrouesnel/dns-over-https-proxy

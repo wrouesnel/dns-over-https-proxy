@@ -14,9 +14,12 @@ import (
 	"syscall"
 
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
+
+	"strings"
+
+	"fmt"
 
 	"github.com/miekg/dns"
 	"github.com/wrouesnel/go.log"
@@ -27,6 +30,17 @@ var (
 
 	defaultServer = flag.String("default", "https://dns.google.com/resolve",
 		"DNS-over-HTTPS service endpoint")
+
+	prefixServer = flag.String("primary-dns", "",
+		"If set all DNS queries are attempted against this DNS server first before trying HTTPS")
+
+	suffixServer = flag.String("fallback-dns", "",
+		"If set all failed (i.e. NXDOMAIN and others) DNS queries are attempted against this DNS server after HTTPS fails.") // nolint: lll
+
+	fallthroughStatuses = flag.String("fallthrough-statuses", "NXDOMAIN",
+		"Comma-separated list of statuses which should cause server fallthrough")
+	neverDefault = flag.String("no-fallthrough", "",
+		"Comma-separated list of suffixes which will not be allowed to fallthrough (most useful with prefix DNS")
 
 	//routeList = flag.String("route", "",
 	//	"List of routes where to send queries (subdomain=IP:port)")
@@ -157,7 +171,20 @@ func route(w dns.ResponseWriter, req *dns.Msg) {
 	//		return
 	//	}
 	//}
-	proxy(*defaultServer, w, req)
+
+	fallthroughs := make(map[int]struct{})
+	for _, v := range strings.Split(*fallthroughStatuses, ",") {
+		rcode, found := dns.StringToRcode[v]
+		if !found {
+			log.Fatalln("Could not find matching Rcode integer for", v)
+		}
+
+		fallthroughs[rcode] = struct{}{}
+	}
+
+	noFallthrough := strings.Split(*neverDefault, ",")
+
+	proxy(*defaultServer, *prefixServer, *suffixServer, fallthroughs, noFallthrough, w, req)
 }
 
 //func isTransfer(req *dns.Msg) bool {
@@ -183,41 +210,17 @@ func route(w dns.ResponseWriter, req *dns.Msg) {
 //	return false
 //}
 
-func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
-	var err error
-	//transport := "udp"
-	//if _, ok := w.RemoteAddr().(*net.TCPAddr); ok {
-	//	transport = "tcp"
-	//}
-	//if isTransfer(req) {
-	//	if transport != "tcp" {
-	//		dns.HandleFailed(w, req)
-	//		return
-	//	}
-	//	t := new(dns.Transfer)
-	//	c, err := t.In(req, addr)
-	//	if err != nil {
-	//		dns.HandleFailed(w, req)
-	//		return
-	//	}
-	//	if err = t.Out(w, req, c); err != nil {
-	//		dns.HandleFailed(w, req)
-	//		return
-	//	}
-	//	return
-	//}
-	//c := &dns.Client{Net: "tcp"}
-	//resp, _, err := c.Exchange(req, addr)
-	//if err != nil {
-	//	dns.HandleFailed(w, req)
-	//	return
-	//}
+func dnsRequestProxy(addr string, transport string, req *dns.Msg) (*dns.Msg, error) {
+	c := &dns.Client{Net: transport}
+	resp, _, err := c.Exchange(req, addr)
+	return resp, err
+}
 
+func httpDNSRequestProxy(addr string, _ string, req *dns.Msg) (*dns.Msg, error) {
 	httpreq, err := http.NewRequest(http.MethodGet, addr, nil)
 	if err != nil {
 		log.Errorln("Error setting up request:", err)
-		dns.HandleFailed(w, req)
-		return
+		return nil, err
 	}
 
 	qry := httpreq.URL.Query()
@@ -233,9 +236,7 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 
 	httpresp, err := http.DefaultClient.Do(httpreq)
 	if err != nil {
-		log.Errorln("Error sending DNS response:", err)
-		dns.HandleFailed(w, req)
-		return
+		return nil, err
 	}
 	defer httpresp.Body.Close() // nolint: errcheck
 
@@ -244,9 +245,7 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 	decoder := json.NewDecoder(httpresp.Body)
 	err = decoder.Decode(&dnsResp)
 	if err != nil {
-		log.Errorln("Malformed JSON DNS response:", err)
-		dns.HandleFailed(w, req)
-		return
+		return nil, err
 	}
 
 	// Parse the google Questions to DNS RRs
@@ -298,9 +297,76 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 		Extra:    extras,
 	}
 
-	// Write the response
-	err = w.WriteMsg(&resp)
-	if err != nil {
-		log.Errorln("Error writing DNS response:", err)
+	return &resp, nil
+}
+
+func isSuccess(fallthroughStatuses map[int]struct{}, resp *dns.Msg) bool {
+	if resp == nil {
+		return false
 	}
+	_, found := fallthroughStatuses[resp.Rcode]
+	return !found
+}
+
+func continueFallthrough(noFallthrough []string, req *dns.Msg) bool {
+	for _, f := range noFallthrough {
+		if f == "" {
+			continue
+		}
+		for _, q := range req.Question {
+			if strings.HasSuffix(q.Name, f) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+type proxyFunc func() (*dns.Msg, error)
+
+func proxy(addr string, prefixServer string, suffixServer string, fallthroughStatuses map[int]struct{},
+	noFallthrough []string, w dns.ResponseWriter, req *dns.Msg) {
+
+	qryCanFallthrough := continueFallthrough(noFallthrough, req)
+
+	transport := "udp"
+	if _, ok := w.RemoteAddr().(*net.TCPAddr); ok {
+		transport = "tcp"
+	}
+
+	proxyFuncs := []proxyFunc{}
+
+	// If prefix server set, try prefix server...
+	if prefixServer != "" {
+		proxyFuncs = append(proxyFuncs, func() (*dns.Msg, error) { return dnsRequestProxy(prefixServer, transport, req) })
+
+	}
+
+	proxyFuncs = append(proxyFuncs, func() (*dns.Msg, error) { return httpDNSRequestProxy(addr, transport, req) })
+
+	// If prefix server set, try prefix server...
+	if suffixServer != "" {
+		proxyFuncs = append(proxyFuncs, func() (*dns.Msg, error) { return dnsRequestProxy(suffixServer, transport, req) })
+
+	}
+
+	for _, proxyFunc := range proxyFuncs {
+		resp, err := proxyFunc()
+		if err == nil && (isSuccess(fallthroughStatuses, resp) || !qryCanFallthrough) {
+			// Write the response
+			err = w.WriteMsg(resp)
+			if err != nil {
+				log.Errorln("Error writing DNS response:", err)
+				dns.HandleFailed(w, req)
+			}
+			return
+		}
+
+		if !qryCanFallthrough {
+			dns.HandleFailed(w, req)
+			return
+		}
+	}
+
+	dns.HandleFailed(w, req)
 }

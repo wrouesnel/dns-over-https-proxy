@@ -97,7 +97,7 @@ lint: tools
 		--enable-all \
 		--line-length=120 \
 		--disable=testify --disable=test --disable=goimports --disable=gofmt \
-		--disable=gotype $(GO_DIRS)
+		--disable=gotype --disable=gocyclo $(GO_DIRS)
 
 fmt: tools
 	gofmt -s -w $(GO_SRC)
